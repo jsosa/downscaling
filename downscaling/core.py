@@ -8,10 +8,7 @@ import sys
 import numpy as np
 import gdalutils as gu
 
-# TODO:
-# thr_dpt should be applied to water depth not water surface elevation!
-
-def downscaling(dem_hresf,wsl_lresf,wd_hresf,thr_val,thr_dpt,nodata):
+def downscaling(dem_hresf,wsl_lresf,wd_lresf,wd_hresf,thr_val,thr_dpt,nodata):
 
     """
     Downscale LFP coarse water surface elevation results to higher reslution water depth
@@ -26,12 +23,16 @@ def downscaling(dem_hresf,wsl_lresf,wd_hresf,thr_val,thr_dpt,nodata):
     wsl_lres = gu.get_data(wsl_lresf)
     wsl_lres_msk = np.ma.masked_values(wsl_lres,nodata)
     
+    # Reading coarse resolution water depth
+    wd_lres = gu.get_data(wd_lresf)
+    wd_lres_msk = np.ma.masked_values(wd_lres,0)
+
     # Reading geo information for both
     geo_hres = gu.get_geo(dem_hresf)
     geo_lres = gu.get_geo(wsl_lresf)
 
-    # Selecting water surface elevatoin > thr_dpt, IT SHOULD BE WATER DEPTH (COARSE RESOLUTION
-    iy,ix = np.where(wsl_lres_msk>=thr_dpt)
+    # Selecting water depth > thr_dpt
+    iy,ix = np.where(wd_lres_msk>thr_dpt)
     x_lres = geo_lres[8][ix]
     y_lres = geo_lres[9][iy]
 

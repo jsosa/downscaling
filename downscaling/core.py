@@ -4,16 +4,26 @@
 # auth: jeison sosa
 # mail: sosa.jeison@gmail.com / j.sosa@bristol.ac.uk
 
+import os
 import sys
+import shutil
 import numpy as np
 import gdalutils as gu
+from subprocess import call
 
-def downscaling(dem_hresf,wsl_lresf,wd_lresf,wd_hresf,thr_val,thr_dpt,nodata):
+def downscaling(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_decay,nodata,wd_hresf):
 
     """
-    Downscale LFP coarse water surface elevation results to higher reslution water depth
-    based on the high resolution DEM. It receives a threshold indicating the window in the DEM
-    where the water will be spread.
+    Downscale flood maps from coarse to a high resolution. Water
+    surface elevation from the coarser grid is substracted from high
+    resolution DEM, it will wet cells with elevation lower than water surface
+    elvation. Water surface elevation can be threshold by `thr_dpt` applied
+    to the coarse resolution water depth. `thr_val` is a threshold of spreadness.
+    A decay in resulting high resolution water depths can be applied by `thr_decay`
+    where thr_decay=0 produces no decay and thr_val>0 produces a decay following
+    the Gaussian equation D=C**thr_val, where D is water depth and C is the proximity.
+    Proximity C is given by proximity (distance) of mask specified by `msk_hresf`,
+    `msk_hresf` can be location of main river and tributaries in the study area.
     """
 
     # Reading high resolution DEM
@@ -79,9 +89,26 @@ def downscaling(dem_hresf,wsl_lresf,wd_lresf,wd_hresf,thr_val,thr_dpt,nodata):
         # Otherwise substitute by values
         else:
             wd_hres[yind0:yind1,xind0:xind1] = wd.filled(0)
-    
+
+    # Create a temp folder
+    outfolder = os.path.dirname(wd_hresf) + '/tmp/'
+    try:
+        os.mkdir(outfolder)
+    except FileExistsError:
+        pass
+
+    # Calc proximity around `msk_hresf`
+    call(['gdal_proximity.py','-distunits','GEO',
+                              '-co','COMPRESS=LZW',
+                              '-nodata','0',
+                              msk_hresf,outfolder+'buffer_dist.tif'])
+
+    mask = gu.get_data(outfolder+'buffer_dist.tif')
+    weig = (1-mask)**thr_decay
+    wd_final = wd_hres * weig
+
     # Write final high resolution water depth map
-    gu.write_raster(wd_hres,wd_hresf,geo_hres,'Float64',0)
+    gu.write_raster(wd_final,wd_hresf,geo_hres,'Float64',0)
 
 def get_index_geo(geo,geo2):
 	

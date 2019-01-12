@@ -26,28 +26,23 @@ def downscaling(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_decay
     `msk_hresf` can be location of main river and tributaries in the study area.
     """
 
-    # Reading high resolution DEM
-    dem_hres = gu.get_data(dem_hresf)
-
     # Reading coarse resolution water surface elevation
     wsl_lres = gu.get_data(wsl_lresf)
-    wsl_lres_msk = np.ma.masked_values(wsl_lres,nodata)
     
     # Reading coarse resolution water depth
     wd_lres = gu.get_data(wd_lresf)
-    wd_lres_msk = np.ma.masked_values(wd_lres,0)
 
     # Reading geo information for both
     geo_hres = gu.get_geo(dem_hresf)
     geo_lres = gu.get_geo(wsl_lresf)
 
     # Selecting water depth > thr_dpt
-    iy,ix = np.where(wd_lres_msk>thr_dpt)
+    iy,ix = np.where(wd_lres>thr_dpt)
     x_lres = geo_lres[8][ix]
     y_lres = geo_lres[9][iy]
 
     # Create a empty array, the output array
-    wd_hres = np.zeros_like(dem_hres)
+    wd_hres = np.zeros((len(geo_hres[9]),len(geo_hres[8])))
 
     # Iterate over every coarse water surface elevation pixel
     for i in range(len(x_lres)):
@@ -60,36 +55,23 @@ def downscaling(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_decay
 
         # Clipping the high resolution DEM for previous window
         dat_dem, geo_dem = gu.clip_raster(dem_hresf, xmin, ymin, xmax, ymax)
-        dat_dem_msk = np.ma.masked_values(dat_dem,nodata)
 
-        # Getting water surface elevation value
-        wsl_val = wsl_lres_msk[iy[i],ix[i]]
-
-        # Substracting water surface eleavation to values in DEM window
-        # Only positive values are valid cells
-        wd = wsl_val-dat_dem_msk
-        wd = np.ma.masked_where(wd<0,wd)
-        wd = np.ma.masked_where(wd.filled(0)<0,wd)
-
-        # Getting indexes from high DEM
-        yind0,yind1,xind0,xind1 = get_index_geo(geo_dem,geo_hres)
+        # Getting indexes from high resolution DEM
+        yind0,yind1,xind0,xind1 = get_index_geo(geo_dem[8],geo_dem[9],geo_hres[8],geo_hres[9])
         
-        # Reading high resolution water depth values
+        # Reading 'from previous iteration' high resolution water depth values
         win = wd_hres[yind0:yind1,xind0:xind1]
 
-        # If window is with values and mean is greater than 0
-        if np.mean(win)>0:
-            
-            # Average previous values
-            c = np.ones([win.shape[0],win.shape[1],2]) * np.nan
-            c[:,:,0] = win
-            c[:,:,1] = wd.filled(0)
-            wd_hres[yind0:yind1,xind0:xind1] = np.mean(c,axis=2)
-        
-        # Otherwise substitute by values
-        else:
-            wd_hres[yind0:yind1,xind0:xind1] = wd.filled(0)
+        # Getting water surface elevation value
+        # Substracting water surface eleavation to values in DEM window
+        # Only positive values are valid cells
+        wd = wsl_lres[iy[i],ix[i]]-dat_dem
+        wd[wd<0]=0        
 
+        # Average previous values
+        wd_hres[yind0:yind1,xind0:xind1] = (win+wd)/2 # np.mean([win,wd],axis=0)        
+
+    # Apply a exonential decay over the inundated area
     # Create a temp folder
     outfolder = os.path.dirname(wd_hresf) + '/tmp/'
     try:
@@ -101,25 +83,24 @@ def downscaling(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_decay
     call(['gdal_proximity.py','-distunits','GEO',
                               '-co','COMPRESS=LZW',
                               '-nodata','0',
-                              msk_hresf,outfolder+'buffer_dist.tif'])
+                              msk_hresf,
+                              outfolder+'buffer_dist.tif'])
 
+    # Multiply by decay function
     mask = gu.get_data(outfolder+'buffer_dist.tif')
-    weig = (1-mask)**thr_decay
-    wd_final = wd_hres * weig
+    wd_hres = wd_hres * (1-mask)**thr_decay
 
     # Write final high resolution water depth map
-    gu.write_raster(wd_final,wd_hresf,geo_hres,'Float64',0)
+    gu.write_raster(wd_hres,wd_hresf,geo_hres,'Float64',0)
 
-def get_index_geo(geo,geo2):
-	
-    xmin = geo[8].min()
-    ymin = geo[9].min()
-    xmax = geo[8].max()
-    ymax = geo[9].max()
-    xx = geo2[8]
-    yy = geo2[9]
-    xind0 = abs(xx-xmin).argmin()
-    xind1 = abs(xx-xmax).argmin()+1  # inclusive slicing
-    yind0 = abs(yy-ymax).argmin()
-    yind1 = abs(yy-ymin).argmin()+1  # inclusive slicing
+def get_index_geo(x1,y1,x2,y2):
+    
+    xmin  = x1.min()
+    ymin  = y1.min()
+    xmax  = x1.max()
+    ymax  = y1.max()
+    xind0 = abs(x2-xmin).argmin()
+    xind1 = abs(x2-xmax).argmin()+1  # inclusive slicing
+    yind0 = abs(y2-ymax).argmin()
+    yind1 = abs(y2-ymin).argmin()+1  # inclusive slicing
     return yind0,yind1,xind0,xind1

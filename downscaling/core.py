@@ -180,7 +180,7 @@ def downscaling_mp(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_de
 
     # Multiply by decay function
     mask = xr.open_rasterio(outfolder+'buffer_dist.tif').sel(band=1)
-    wd_hres[:,:] = (sum(results))[:,:] * ((1-mask)**thr_decay)[:,:]
+    wd_hres[:,:] = (sum(results)).data * ((1-mask)**thr_decay).data
 
     # Write final high resolution water depth map
     xr.Dataset({'wd':wd_hres}).to_netcdf(wd_hresf,encoding={'wd':{'zlib':True}})

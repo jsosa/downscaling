@@ -55,7 +55,7 @@ def downscaling(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_decay
         wd = wsl-dem_hres.sel(x=slice(xmin,xmax),y=slice(ymax,ymin))
         wd = wd.where(wd>0,0)
         win = wd_hres.sel(x=slice(xmin,xmax),y=slice(ymax,ymin))
-        wd_hres.loc[dict(x=x_hres[(x_hres>xmin)&(x_hres<xmax)], y=y_hres[(y_hres>ymin)&(y_hres<ymax)])] = ((wd+win)/2).values
+        wd_hres.loc[dict(x=x_hres[(x_hres>xmin)&(x_hres<xmax)], y=y_hres[(y_hres>ymin)&(y_hres<ymax)])] = (xr.ufuncs.maximum(win,wd)).values
 
     # Apply a exonential decay over the inundated area
     # Create a temp folder
@@ -140,7 +140,7 @@ def downscaling_mp(dem_hresf,msk_hresf,wsl_lresf,wd_lresf,thr_val,thr_dpt,thr_de
             wd = wsl-dem_hres.sel(x=slice(xmin,xmax),y=slice(ymax,ymin))
             wd = wd.where(wd>0,0)
             win = wd_hres.sel(x=slice(xmin,xmax),y=slice(ymax,ymin))
-            wd_hres.loc[dict(x=x_hres[(x_hres>xmin)&(x_hres<xmax)], y=y_hres[(y_hres>ymin)&(y_hres<ymax)])] = ((wd+win)/2).values
+            wd_hres.loc[dict(x=x_hres[(x_hres>xmin)&(x_hres<xmax)], y=y_hres[(y_hres>ymin)&(y_hres<ymax)])] = (xr.ufuncs.maximum(win,wd)).values
         
         output.put(wd_hres)
 

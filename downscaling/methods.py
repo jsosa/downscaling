@@ -4,6 +4,7 @@
 # auth: jeison sosa
 # mail: sosa.jeison@gmail.com / j.sosa@bristol.ac.uk
 
+import os
 import pandas as pd
 import xarray as xr
 from subprocess import call
@@ -13,6 +14,9 @@ def read_static_inputs(dem_hresf, msk_hresf):
 
     # Reading geo information for both
     dem_hres = xr.open_rasterio(dem_hresf).sel(band=1)
+
+    # Remove msk_hres_prox.tif if exists
+    os.remove('msk_hres_prox.tif')
 
     # Reading high resolution rivers, channels and lakes mask
     # Replace all values >0 with ones
@@ -30,6 +34,9 @@ def read_dynamic_inputs(wsl_lresf, wd_lresf, net_lresf):
 
     # Reading coarse resolution water depth
     wd_lres = xr.open_rasterio(wd_lresf).sel(band=1)
+
+    # Remove net_lres_prox.tif if exists
+    os.remove('net_lres_prox.tif')
 
     # Reading coarser river network
     call(['gdal_proximity.py', '-distunits', 'GEO',

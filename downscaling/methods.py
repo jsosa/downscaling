@@ -16,7 +16,10 @@ def read_static_inputs(dem_hresf, msk_hresf):
     dem_hres = xr.open_rasterio(dem_hresf).sel(band=1)
 
     # Remove msk_hres_prox.tif if exists
-    os.remove('msk_hres_prox.tif')
+    try:
+        os.remove('msk_hres_prox.tif')
+    except:
+        pass
 
     # Reading high resolution rivers, channels and lakes mask
     # Replace all values >0 with ones
@@ -36,7 +39,10 @@ def read_dynamic_inputs(wsl_lresf, wd_lresf, net_lresf):
     wd_lres = xr.open_rasterio(wd_lresf).sel(band=1)
 
     # Remove net_lres_prox.tif if exists
-    os.remove('net_lres_prox.tif')
+    try:
+        os.remove('net_lres_prox.tif')
+    except:
+        pass
 
     # Reading coarser river network
     call(['gdal_proximity.py', '-distunits', 'GEO',
